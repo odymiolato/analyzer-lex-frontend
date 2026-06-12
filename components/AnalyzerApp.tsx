@@ -5,7 +5,7 @@ import { CodeEditor } from '@/components/CodeEditor';
 import { TokenTable } from '@/components/TokenTable';
 import { AutomataVisualizer } from '@/components/AutomataVisualizer';
 import { Documentation } from '@/components/Documentation';
-import { analyzeCode, Token } from '@/lib/api';
+import { analyzeCode, parseCode, Token, CSTNode, SyntaxError } from '@/lib/api';
 
 interface State {
   id: string;
@@ -20,23 +20,174 @@ interface Transition {
   label: string;
 }
 
-type Tab = 'editor' | 'automata' | 'docs';
+type Tab = 'editor' | 'syntax' | 'automata' | 'docs';
 
+/* ─── CST Tree Renderer ─────────────────────────────────── */
+const CSTTreeNode: React.FC<{ node: CSTNode; depth?: number }> = ({ node, depth = 0 }) => {
+  const [open, setOpen] = useState(true);
+  const hasChildren = node.children && node.children.length > 0;
+  const isLeaf = !hasChildren;
+
+  return (
+    <div style={{ paddingLeft: depth === 0 ? 0 : 18 }} className="select-none">
+      <div
+        className={`flex items-center gap-1.5 py-[3px] px-2 rounded-md cursor-pointer group transition-colors ${isLeaf
+          ? 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)]'
+          : 'hover:bg-[var(--bg-hover)]'
+          }`}
+        onClick={() => hasChildren && setOpen(!open)}
+      >
+        {hasChildren ? (
+          <span className="text-[var(--accent)] text-[10px] w-3 shrink-0 font-bold">
+            {open ? '▾' : '▸'}
+          </span>
+        ) : (
+          <span className="w-3 shrink-0 text-[var(--text-muted)] text-[10px]">◆</span>
+        )}
+
+        <span className={`text-xs font-semibold ${isLeaf ? 'text-[#7dd3b0]' : 'text-[var(--accent)]'}`}>
+          {node.name}
+        </span>
+
+        {node.image && (
+          <span className="ml-1 text-xs text-[#f0c070] font-mono bg-[#2a2215] px-1.5 py-0.5 rounded">
+            {node.image}
+          </span>
+        )}
+
+        {node.tokenType && (
+          <span className="ml-auto text-[10px] text-[var(--text-muted)] font-mono opacity-60">
+            {node.tokenType}
+          </span>
+        )}
+      </div>
+
+      {hasChildren && open && (
+        <div className="border-l border-[var(--border)] ml-3">
+          {node.children!.map((child, i) => (
+            <CSTTreeNode key={i} node={child} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─── Syntax Error List ─────────────────────────────────── */
+const SyntaxErrorList: React.FC<{ errors: SyntaxError[] }> = ({ errors }) => {
+  if (errors.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-32 gap-2 text-[var(--text-muted)]">
+        <span className="text-2xl">✓</span>
+        <span className="text-xs">Sin errores sintácticos</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {errors.map((err, i) => (
+        <div key={i} className="flex gap-3 p-3 bg-[#2b1117] border border-[#5b202d] rounded-lg">
+          <span className="text-[#ff6b6b] text-sm mt-0.5">✕</span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-xs font-semibold text-[#ff9db2]">
+              Línea {err.line}, Col {err.column}
+            </span>
+            <span className="text-xs text-[#ff9db2]/80 break-words">{err.message}</span>
+            {err.token && (
+              <span className="text-[10px] font-mono text-[#ff6b6b]/60 mt-1">
+                token: <span className="text-[#ff9db2]">{err.token}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* ─── Syntax Panel ──────────────────────────────────────── */
+const SyntaxPanel: React.FC<{
+  cst: CSTNode | null;
+  errors: SyntaxError[];
+  loading: boolean;
+}> = ({ cst, errors, loading }) => {
+  const [view, setView] = useState<'tree' | 'errors'>('tree');
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full text-[var(--text-muted)] text-sm gap-2">
+        <span className="animate-spin">⟳</span> Analizando sintaxis…
+      </div>
+    );
+  }
+
+  if (!cst && errors.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-[var(--text-muted)]">
+        <span className="text-4xl opacity-20">🌲</span>
+        <span className="text-sm">Presiona <strong>Analizar</strong> para ver el árbol sintáctico</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Sub-tabs */}
+      <div className="flex gap-1 px-4 pt-3 pb-2 border-b border-[var(--border)]">
+        <button
+          onClick={() => setView('tree')}
+          className={`px-3 py-1 text-xs rounded-md border transition-colors ${view === 'tree'
+            ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
+            : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]'
+            }`}
+        >
+          🌲 Árbol CST
+        </button>
+        <button
+          onClick={() => setView('errors')}
+          className={`px-3 py-1 text-xs rounded-md border transition-colors flex items-center gap-1.5 ${view === 'errors'
+            ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
+            : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)]'
+            }`}
+        >
+          ⚠ Errores
+          {errors.length > 0 && (
+            <span className="bg-[#ff4444] text-white text-[10px] font-bold px-1.5 rounded-full">
+              {errors.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-4">
+        {view === 'tree' ? (
+          cst ? (
+            <div className="font-mono text-xs">
+              <CSTTreeNode node={cst} />
+            </div>
+          ) : (
+            <div className="text-[var(--text-muted)] text-xs text-center py-8">
+              No se pudo generar el árbol (revisa los errores)
+            </div>
+          )
+        ) : (
+          <SyntaxErrorList errors={errors} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Main App ──────────────────────────────────────────── */
 export const AnalyzerApp: React.FC = () => {
   const [code, setCode] = useState(
-    `int main() {
-  int x = 10;
-  float pi = 3.14;
-  char msg = "Hola";
-  
-  if (x > 5) {
-    printf("%d", x);
-  }
-  
-  return 0;
-}`
+    `int main() {\n  int x = 10;\n  float pi = 3.14;\n  char msg = "Hola";\n\n  if (x > 5) {\n    printf("%d", x);\n  }\n\n  return 0;\n}`
   );
   const [tokens, setTokens] = useState<Token[]>([]);
+  const [cst, setCst] = useState<CSTNode | null>(null);
+  const [syntaxErrors, setSyntaxErrors] = useState<SyntaxError[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [transitions, setTransitions] = useState<Transition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,18 +196,25 @@ export const AnalyzerApp: React.FC = () => {
 
   const handleAnalyze = useCallback(async () => {
     if (!code.trim()) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      const result = await analyzeCode(code);
-      setTokens(result.tokens || []);
+      // Lexico + Sintáctico en paralelo
+      const [lexResult, syntaxResult] = await Promise.all([
+        analyzeCode(code),
+        parseCode(code),
+      ]);
 
-      // Simulamos estados y transiciones para el autómata
-      const tokenTypes = Array.from(
-        new Set(result.tokens?.map((t) => t.tipo) || [])
-      );
+      // Tokens
+      setTokens(lexResult.tokens || []);
+
+      // CST + errores sintácticos
+      setCst(syntaxResult.cst || null);
+      setSyntaxErrors(syntaxResult.errors || []);
+
+      // Autómata
+      const tokenTypes = Array.from(new Set(lexResult.tokens?.map((t) => t.tipo) || []));
       const newStates: State[] = [
         { id: 'q0', label: 'q0', isStart: true },
         ...tokenTypes.map((type, i) => ({
@@ -65,90 +223,123 @@ export const AnalyzerApp: React.FC = () => {
           isFinal: i === tokenTypes.length - 1,
         })),
       ];
-
       const newTransitions: Transition[] = tokenTypes.map((type, i) => ({
         from: `q${i}`,
         to: `q${i + 1}`,
         label: type,
       }));
-
       setStates(newStates);
       setTransitions(newTransitions);
-      setActiveTab('editor');
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Error al analizar el código'
-      );
+      setError(err instanceof Error ? err.message : 'Error al analizar el código');
       console.error(err);
     } finally {
       setLoading(false);
     }
   }, [code]);
 
+  const tabs: { id: Tab; label: string; mobileLabel: string; icon: string }[] = [
+    { id: 'editor', label: 'Léxico', mobileLabel: 'Léxico', icon: '⌨' },
+    { id: 'syntax', label: 'Sintáctico', mobileLabel: 'Sint.', icon: '🌲' },
+    { id: 'automata', label: 'Autómata', mobileLabel: 'Autómata', icon: '◎' },
+    { id: 'docs', label: 'Documentación', mobileLabel: 'Docs', icon: '📄' },
+  ];
+
+  const hasSyntaxErrors = syntaxErrors.length > 0;
+
   return (
-    <div className="w-full min-h-screen flex flex-col fade-up ui-font">
-      <header className="h-14 px-4 md:px-6 border-b border-[var(--border)] bg-[var(--bg-panel)] flex items-center justify-between">
-        <div className="flex items-center gap-2.5 font-extrabold tracking-tight text-[18px]">
+    <div className="w-full min-h-screen flex flex-col fade-up ui-font border">
+      {/* ── Header ── */}
+      <header className=" h-14 px-4 md:px-6 border-b border-[var(--border)] bg-[var(--bg-panel)] flex items-center justify-between gap-3">
+        <div className="flex flex-[33.33%] items-center gap-2.5 font-extrabold tracking-tight text-[18px] shrink-0">
           <div className="w-8 h-8 rounded-lg bg-[var(--accent)] text-white text-sm flex items-center justify-center">⚡</div>
           <span className="text-[var(--text)]">Analizador</span>
-          <span className="text-[var(--accent)]">Lex</span>
+          <span className="text-[var(--accent)]">C</span>
         </div>
 
-        <div className="hidden md:flex items-center gap-1">
-          {(['editor', 'automata', 'docs'] as Tab[]).map((tab) => {
-            const label = tab === 'editor' ? 'Analizador' : tab === 'automata' ? 'Autómata' : 'Documentación';
-            const active = activeTab === tab;
+        {/* Desktop tabs */}
+        <div className="w-full flex-[33.33%] h-full hidden md:flex items-center justify-center gap-5">
+          {tabs.map(({ id, label, icon }) => {
+            const active = activeTab === id;
+            const badge = id === 'syntax' && hasSyntaxErrors;
             return (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`px-3.5 py-1.5 text-xs rounded-md border transition-colors ${
-                  active
-                    ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
-                    : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'
-                }`}
+                key={id}
+                onClick={() => setActiveTab(id)}
+                style={{ padding: '10px' }}
+                className={`relative px-3.5 py-1.5 text-xs rounded-md border transition-colors flex items-center gap-1.5 ${active
+                  ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
+                  : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'
+                  }`}
               >
+                <span>{icon}</span>
                 {label}
+                {badge && (
+                  <span className="bg-[#ff4444] text-white text-[9px] font-bold px-1 rounded-full">
+                    {syntaxErrors.length}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
-
-        <button
-          onClick={handleAnalyze}
-          disabled={loading || !code.trim()}
-          className="px-4 py-2 rounded-lg text-xs font-bold tracking-wide text-white bg-[var(--accent)] disabled:opacity-50 hover:brightness-110 transition"
-        >
-          ▶ {loading ? 'Analizando...' : 'Analizar'}
-        </button>
+        <div style={{ padding: '10px' }} className='flex w-full flex-[33.33%] justify-end p-5'>
+          <button
+            onClick={handleAnalyze}
+            disabled={loading || !code.trim()}
+            style={{ padding: '10px',display:'flex',justifyContent:'center',alignItems:'center',gap:'6px' }}
+            className="inline-flex items-center gap-2 px-4 h-9 rounded-lg text-xs font-medium tracking-wide bg-[var(--accent)] text-white hover:opacity-85 active:scale-[0.97] transition disabled:opacity-45"
+          >
+            {loading ? '⟳ Analizando…' : '▶ Analizar'}
+          </button>
+        </div>
       </header>
 
+      {/* Error banner */}
       {error && (
-        <div className="px-4 md:px-6 py-2 bg-[#2b1117] border-b border-[#5b202d] text-[#ff9db2] text-sm">
-          Error: {error}
+        <div className="px-4 md:px-6 py-2 bg-[#2b1117] border-b border-[#5b202d] text-[#ff9db2] text-sm flex items-center gap-2">
+          <span>✕</span> {error}
         </div>
       )}
 
+      {/* Syntax warning banner */}
+      {!error && hasSyntaxErrors && (
+        <div
+          onClick={() => setActiveTab('syntax')}
+          className="px-4 md:px-6 py-2 bg-[#271a0a] border-b border-[#6b3d10] text-[#ffa94d] text-xs flex items-center gap-2 cursor-pointer hover:bg-[#2f2010] transition-colors"
+        >
+          <span>⚠</span>
+          {syntaxErrors.length} error{syntaxErrors.length > 1 ? 'es' : ''} sintáctico{syntaxErrors.length > 1 ? 's' : ''} encontrado{syntaxErrors.length > 1 ? 's' : ''} —{' '}
+          <span className="underline">ver detalles</span>
+        </div>
+      )}
+
+      {/* Mobile tabs */}
       <div className="md:hidden px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-panel)] flex gap-1 overflow-x-auto">
-        {(['editor', 'automata', 'docs'] as Tab[]).map((tab) => {
-          const label = tab === 'editor' ? 'Analizador' : tab === 'automata' ? 'Autómata' : 'Docs';
-          const active = activeTab === tab;
+        {tabs.map(({ id, mobileLabel, icon }) => {
+          const active = activeTab === id;
+          const badge = id === 'syntax' && hasSyntaxErrors;
           return (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 text-xs rounded-md border whitespace-nowrap transition-colors ${
-                active
-                  ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
-                  : 'bg-transparent text-[var(--text-muted)] border-transparent'
-              }`}
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`relative px-3 py-1.5 text-xs rounded-md border whitespace-nowrap transition-colors flex items-center gap-1 ${active
+                ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
+                : 'bg-transparent text-[var(--text-muted)] border-transparent'
+                }`}
             >
-              {label}
+              {icon} {mobileLabel}
+              {badge && (
+                <span className="bg-[#ff4444] text-white text-[9px] font-bold px-1 rounded-full">
+                  {syntaxErrors.length}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
 
+      {/* ── Content ── */}
       <div className="flex-1 overflow-hidden p-0 md:p-1">
         {activeTab === 'editor' && (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-px bg-[var(--border)] h-full">
@@ -162,13 +353,15 @@ export const AnalyzerApp: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'syntax' && (
+          <div className="h-full bg-[var(--bg-panel)]">
+            <SyntaxPanel cst={cst} errors={syntaxErrors} loading={loading} />
+          </div>
+        )}
+
         {activeTab === 'automata' && (
           <div className="h-full p-3 md:p-6 overflow-auto">
-            <AutomataVisualizer
-              states={states}
-              transitions={transitions}
-              loading={loading}
-            />
+            <AutomataVisualizer states={states} transitions={transitions} loading={loading} />
           </div>
         )}
 

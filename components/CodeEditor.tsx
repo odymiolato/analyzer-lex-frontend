@@ -34,60 +34,146 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-panel)]">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border)]">
-        <h2 className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--text-muted)]">Código Fuente</h2>
+    <div className="flex flex-col h-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-panel)] shadow-lg">
+
+      {/* Header */}
+      <div style={{ padding: '10px' }} className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)] bg-[var(--bg)]">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-[var(--accent)]" />
+          <h2 className="text-xs tracking-[0.18em] uppercase font-semibold text-[var(--text-muted)]">
+            Código Fuente
+          </h2>
+        </div>
+
         <Button
           onClick={onAnalyze}
           disabled={isLoading || !value.trim()}
-          className="hidden md:inline-flex h-7 px-3 bg-[var(--accent)] hover:brightness-110 text-white rounded-md text-xs"
+          style={{ padding: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}
+          className="
+          h-8 px-4
+          w-20
+          bg-[var(--accent)]
+          hover:brightness-110
+          text-white
+          rounded-lg
+          text-xs
+          font-medium
+          transition-all
+          duration-200
+          shadow-md
+        "
         >
           {isLoading ? 'Analizando...' : 'Analizar'}
         </Button>
       </div>
 
+      {/* Editor */}
       <div className="flex-1 overflow-hidden flex">
-        <div className="w-11 bg-[var(--bg)] border-r border-[var(--border)] flex flex-col items-end py-3 pr-2 text-[11px] text-[var(--text-faint)] code-font leading-[1.65]">
-          {value
-            .split('\n')
-            .map((_, i) => (
-              <div key={i} className="h-[25px] flex items-center justify-end">
-                {i + 1}
-              </div>
-            ))}
+
+        {/* Line Numbers */}
+        <div
+          className="
+          min-w-[52px]
+          bg-[var(--bg)]
+          border-r border-[var(--border)]
+          flex flex-col
+          items-end
+          py-3
+          pr-3
+          text-[11px]
+          text-[var(--text-faint)]
+          code-font
+          leading-[1.65]
+          select-none
+        "
+        >
+          {value.split('\n').map((_, i) => (
+            <div
+              key={i}
+              className="
+              h-[25px]
+              flex
+              items-center
+              justify-end
+              transition-colors
+            "
+            >
+              {i + 1}
+            </div>
+          ))}
         </div>
 
-        <div className="flex-1 relative overflow-hidden">
+        {/* Code Area */}
+        <div
+          className="
+          flex-1
+          relative
+          overflow-hidden
+          bg-[var(--bg-panel)]
+        "
+        >
           <textarea
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="absolute inset-0 w-full h-full p-3 code-font text-[13px] leading-[1.65] bg-transparent text-transparent caret-[var(--accent)] resize-none focus:outline-none"
-            spellCheck="false"
+            spellCheck={false}
+            style={{ padding: 'calc(var(--spacing) * 4)' }}
+            className="
+            sticky
+            inset-0
+            w-full
+            h-full
+            p-4
+            bg-transparent
+            text-transparent
+            caret-[var(--accent)]
+            resize-none
+            focus:outline-none
+            code-font
+            text-[13px]
+            leading-[1.65]
+            z-10
+          "
           />
+
           <div className="absolute inset-0 overflow-auto pointer-events-none">
             <SyntaxHighlighter
               language="c"
               style={atomOneDark}
               customStyle={{
-                padding: '12px',
+                padding: '16px',
                 margin: 0,
                 background: 'transparent',
                 fontSize: '13px',
                 lineHeight: '1.65',
-                fontFamily: 'var(--font-code), Consolas, monospace',
+                fontFamily:
+                  'var(--font-code), Consolas, Monaco, monospace',
               }}
               wrapLines
               codeTagProps={{
                 style: {
-                  fontFamily: 'var(--font-code), Consolas, monospace',
-                  fontSize: 'inherit',
+                  fontFamily:
+                    'var(--font-code), Consolas, Monaco, monospace',
                 },
               }}
             >
               {value || '// Escribe tu código aquí...'}
             </SyntaxHighlighter>
           </div>
+
+          {/* Glow inferior */}
+          <div
+            className="
+            pointer-events-none
+            absolute
+            inset-x-0
+            bottom-0
+            h-10
+            bg-gradient-to-t
+            from-black/10
+            to-transparent
+          "
+          />
         </div>
       </div>
     </div>
