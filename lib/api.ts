@@ -82,7 +82,7 @@ export const analyzeCode = async (source: string): Promise<AnalysisResponse> => 
   }
 };
 
-// ─── Análisis sintáctico (nuevo) ──────────────────────────
+// ─── Análisis sintáctico ──────────────────────────────────
 
 export const parseCode = async (source: string): Promise<ParseResponse> => {
   try {
@@ -90,6 +90,47 @@ export const parseCode = async (source: string): Promise<ParseResponse> => {
     return response.data;
   } catch (error) {
     console.error('Error parsing code:', error);
+    throw error;
+  }
+};
+
+// ─── Tipos semánticos ─────────────────────────────────────
+
+export interface SemanticError {
+  message: string;
+  line: number;
+  column: number;
+  severity: 'error' | 'warning';
+}
+
+export interface SymbolEntry {
+  name: string;
+  type: string;
+  kind: string;
+  scopeLevel: number;
+  line: number;
+  column: number;
+  initialized: boolean;
+  used: boolean;
+}
+
+export interface SemanticResponse {
+  syntaxErrors: SyntaxError[];
+  semantic: {
+    errors: SemanticError[];
+    warnings: SemanticError[];
+    symbolTable: SymbolEntry[];
+  };
+}
+
+// ─── Análisis semántico ───────────────────────────────────
+
+export const analyzeSemantic = async (source: string): Promise<SemanticResponse> => {
+  try {
+    const response = await api.post<SemanticResponse>('/compiler/analyze', { code: source });
+    return response.data;
+  } catch (error) {
+    console.error('Error in semantic analysis:', error);
     throw error;
   }
 };

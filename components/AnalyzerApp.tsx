@@ -5,7 +5,8 @@ import { CodeEditor } from '@/components/CodeEditor';
 import { TokenTable } from '@/components/TokenTable';
 import { AutomataVisualizer } from '@/components/AutomataVisualizer';
 import { Documentation } from '@/components/Documentation';
-import { analyzeCode, parseCode, Token, CSTNode, SyntaxError } from '@/lib/api';
+import { analyzeCode, parseCode, analyzeSemantic, Token, CSTNode, SyntaxError, SemanticError, SymbolEntry } from '@/lib/api';
+import { SemanticPanel } from '@/components/SemanticPanel';
 
 interface State {
   id: string;
@@ -20,7 +21,7 @@ interface Transition {
   label: string;
 }
 
-type Tab = 'editor' | 'syntax' | 'automata' | 'docs';
+type Tab = 'editor' | 'syntax' | 'semantic' | 'automata' | 'docs';
 
 /* ─── CST Tree Renderer ─────────────────────────────────── */
 const CSTTreeNode: React.FC<{ node: CSTNode; depth?: number }> = ({ node, depth = 0 }) => {
@@ -188,6 +189,9 @@ export const AnalyzerApp: React.FC = () => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [cst, setCst] = useState<CSTNode | null>(null);
   const [syntaxErrors, setSyntaxErrors] = useState<SyntaxError[]>([]);
+  const [semanticErrors, setSemanticErrors] = useState<SemanticError[]>([]);
+  const [semanticWarnings, setSemanticWarnings] = useState<SemanticError[]>([]);
+  const [symbolTable, setSymbolTable] = useState<SymbolEntry[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [transitions, setTransitions] = useState<Transition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -200,10 +204,11 @@ export const AnalyzerApp: React.FC = () => {
     setError(null);
 
     try {
-      // Lexico + Sintáctico en paralelo
-      const [lexResult, syntaxResult] = await Promise.all([
+      // Léxico + Sintáctico + Semántico en paralelo
+      const [lexResult, syntaxResult, semResult] = await Promise.all([
         analyzeCode(code),
         parseCode(code),
+        analyzeSemantic(code),
       ]);
 
       // Tokens
@@ -212,6 +217,11 @@ export const AnalyzerApp: React.FC = () => {
       // CST + errores sintácticos
       setCst(syntaxResult.cst || null);
       setSyntaxErrors(syntaxResult.errors || []);
+
+      // Semántico
+      setSemanticErrors(semResult.semantic?.errors ?? []);
+      setSemanticWarnings(semResult.semantic?.warnings ?? []);
+      setSymbolTable(semResult.semantic?.symbolTable ?? []);
 
       // Autómata
       const tokenTypes = Array.from(new Set(lexResult.tokens?.map((t) => t.tipo) || []));
@@ -239,13 +249,15 @@ export const AnalyzerApp: React.FC = () => {
   }, [code]);
 
   const tabs: { id: Tab; label: string; mobileLabel: string; icon: string }[] = [
-    { id: 'editor', label: 'Léxico', mobileLabel: 'Léxico', icon: '⌨' },
-    { id: 'syntax', label: 'Sintáctico', mobileLabel: 'Sint.', icon: '🌲' },
-    { id: 'automata', label: 'Autómata', mobileLabel: 'Autómata', icon: '◎' },
-    { id: 'docs', label: 'Documentación', mobileLabel: 'Docs', icon: '📄' },
+    { id: 'editor',   label: 'Léxico',         mobileLabel: 'Léxico',  icon: '⌨'  },
+    { id: 'syntax',   label: 'Sintáctico',      mobileLabel: 'Sint.',   icon: '🌲' },
+    { id: 'semantic', label: 'Semántico',        mobileLabel: 'Sem.',    icon: '🔍' },
+    { id: 'automata', label: 'Autómata',         mobileLabel: 'Autómata', icon: '◎' },
+    { id: 'docs',     label: 'Documentación',   mobileLabel: 'Docs',    icon: '📄' },
   ];
 
-  const hasSyntaxErrors = syntaxErrors.length > 0;
+  const hasSyntaxErrors   = syntaxErrors.length > 0;
+  const semanticIssues    = semanticErrors.length + semanticWarnings.length;
 
   return (
     <div className="w-full min-h-screen flex flex-col fade-up ui-font border">
@@ -261,7 +273,7 @@ export const AnalyzerApp: React.FC = () => {
         <div className="w-full flex-[33.33%] h-full hidden md:flex items-center justify-center gap-5">
           {tabs.map(({ id, label, icon }) => {
             const active = activeTab === id;
-            const badge = id === 'syntax' && hasSyntaxErrors;
+            const badge = (id === 'syntax' && hasSyntaxErrors) || (id === 'semantic' && semanticIssues > 0);
             return (
               <button
                 key={id}
@@ -276,7 +288,7 @@ export const AnalyzerApp: React.FC = () => {
                 {label}
                 {badge && (
                   <span className="bg-[#ff4444] text-white text-[9px] font-bold px-1 rounded-full">
-                    {syntaxErrors.length}
+                    {id === 'semantic' ? semanticIssues : syntaxErrors.length}
                   </span>
                 )}
               </button>
@@ -318,7 +330,7 @@ export const AnalyzerApp: React.FC = () => {
       <div className="md:hidden px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-panel)] flex gap-1 overflow-x-auto">
         {tabs.map(({ id, mobileLabel, icon }) => {
           const active = activeTab === id;
-          const badge = id === 'syntax' && hasSyntaxErrors;
+          const badge = (id === 'syntax' && hasSyntaxErrors) || (id === 'semantic' && semanticIssues > 0);
           return (
             <button
               key={id}
@@ -331,7 +343,7 @@ export const AnalyzerApp: React.FC = () => {
               {icon} {mobileLabel}
               {badge && (
                 <span className="bg-[#ff4444] text-white text-[9px] font-bold px-1 rounded-full">
-                  {syntaxErrors.length}
+                  {id === 'semantic' ? semanticIssues : syntaxErrors.length}
                 </span>
               )}
             </button>
@@ -356,6 +368,18 @@ export const AnalyzerApp: React.FC = () => {
         {activeTab === 'syntax' && (
           <div className="h-full bg-[var(--bg-panel)]">
             <SyntaxPanel cst={cst} errors={syntaxErrors} loading={loading} />
+          </div>
+        )}
+
+        {activeTab === 'semantic' && (
+          <div className="h-full overflow-hidden">
+            <SemanticPanel
+              errors={semanticErrors}
+              warnings={semanticWarnings}
+              symbolTable={symbolTable}
+              syntaxErrors={syntaxErrors}
+              loading={loading}
+            />
           </div>
         )}
 
