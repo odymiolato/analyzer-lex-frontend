@@ -34,10 +34,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-panel)] shadow-lg">
-
+    <div className="flex flex-col h-full min-h-[320px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-panel)] shadow-lg">
       {/* Header */}
-      <div style={{ padding: '10px' }} className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)] bg-[var(--bg)]">
+      <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-[var(--border)] bg-[var(--bg)] shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-[var(--accent)]" />
           <h2 className="text-xs tracking-[0.18em] uppercase font-semibold text-[var(--text-muted)]">
@@ -48,20 +47,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         <Button
           onClick={onAnalyze}
           disabled={isLoading || !value.trim()}
-          style={{ padding: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}
-          className="
-          h-8 px-4
-          w-20
-          bg-[var(--accent)]
-          hover:brightness-110
-          text-white
-          rounded-lg
-          text-xs
-          font-medium
-          transition-all
-          duration-200
-          shadow-md
-        "
+          className="lg:hidden h-8 px-4 bg-[var(--accent)] hover:brightness-110 text-white rounded-lg text-xs font-medium transition-all shadow-md"
         >
           {isLoading ? 'Analizando...' : 'Analizar'}
         </Button>
@@ -72,20 +58,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Line Numbers */}
         <div
-          className="
-          min-w-[52px]
-          bg-[var(--bg)]
-          border-r border-[var(--border)]
-          flex flex-col
-          items-end
-          py-3
-          pr-3
-          text-[11px]
-          text-[var(--text-faint)]
-          code-font
-          leading-[1.65]
-          select-none
-        "
+          className="min-w-[52px] bg-[var(--bg)] border-r border-[var(--border)] flex flex-col items-end py-4 pr-4 pl-2 text-[11px] text-[var(--text-faint)] code-font leading-[1.65] select-none shrink-0"
         >
           {value.split('\n').map((_, i) => (
             <div
@@ -117,23 +90,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
             spellCheck={false}
-            style={{ padding: 'calc(var(--spacing) * 4)' }}
-            className="
-            sticky
-            inset-0
-            w-full
-            h-full
-            p-4
-            bg-transparent
-            text-transparent
-            caret-[var(--accent)]
-            resize-none
-            focus:outline-none
-            code-font
-            text-[13px]
-            leading-[1.65]
-            z-10
-          "
+            className="sticky inset-0 w-full h-full p-4 sm:p-5 bg-transparent text-transparent caret-[var(--accent)] resize-none focus:outline-none code-font text-[13px] leading-[1.65] z-10"
           />
 
           <div className="absolute inset-0 overflow-auto pointer-events-none">
@@ -141,7 +98,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               language="c"
               style={atomOneDark}
               customStyle={{
-                padding: '16px',
+                padding: '1.25rem',
                 margin: 0,
                 background: 'transparent',
                 fontSize: '13px',

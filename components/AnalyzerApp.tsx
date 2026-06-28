@@ -5,6 +5,7 @@ import { CodeEditor } from '@/components/CodeEditor';
 import { TokenTable } from '@/components/TokenTable';
 import { AutomataVisualizer } from '@/components/AutomataVisualizer';
 import { Documentation } from '@/components/Documentation';
+import { CodeTranslator } from '@/components/CodeTranslator';
 import { analyzeCode, parseCode, analyzeSemantic, Token, CSTNode, SyntaxError, SemanticError, SymbolEntry } from '@/lib/api';
 import { SemanticPanel } from '@/components/SemanticPanel';
 
@@ -21,7 +22,7 @@ interface Transition {
   label: string;
 }
 
-type Tab = 'editor' | 'syntax' | 'semantic' | 'automata' | 'docs';
+type Tab = 'editor' | 'syntax' | 'semantic' | 'automata' | 'translate' | 'docs';
 
 /* ─── CST Tree Renderer ─────────────────────────────────── */
 const CSTTreeNode: React.FC<{ node: CSTNode; depth?: number }> = ({ node, depth = 0 }) => {
@@ -249,28 +250,29 @@ export const AnalyzerApp: React.FC = () => {
   }, [code]);
 
   const tabs: { id: Tab; label: string; mobileLabel: string; icon: string }[] = [
-    { id: 'editor',   label: 'Léxico',         mobileLabel: 'Léxico',  icon: '⌨'  },
-    { id: 'syntax',   label: 'Sintáctico',      mobileLabel: 'Sint.',   icon: '🌲' },
-    { id: 'semantic', label: 'Semántico',        mobileLabel: 'Sem.',    icon: '🔍' },
-    { id: 'automata', label: 'Autómata',         mobileLabel: 'Autómata', icon: '◎' },
-    { id: 'docs',     label: 'Documentación',   mobileLabel: 'Docs',    icon: '📄' },
+    { id: 'editor',    label: 'Léxico',        mobileLabel: 'Léxico',   icon: '⌨'  },
+    { id: 'syntax',    label: 'Sintáctico',     mobileLabel: 'Sint.',    icon: '🌲' },
+    { id: 'semantic',  label: 'Semántico',       mobileLabel: 'Sem.',     icon: '🔍' },
+    { id: 'automata',  label: 'Autómata',        mobileLabel: 'Autómata', icon: '◎'  },
+    { id: 'translate', label: 'Traductor',       mobileLabel: 'Trad.',    icon: '⇄'  },
+    { id: 'docs',      label: 'Documentación',  mobileLabel: 'Docs',     icon: '📄' },
   ];
 
   const hasSyntaxErrors   = syntaxErrors.length > 0;
   const semanticIssues    = semanticErrors.length + semanticWarnings.length;
 
   return (
-    <div className="w-full min-h-screen flex flex-col fade-up ui-font border">
+    <div className="w-full h-screen flex flex-col fade-up ui-font overflow-hidden">
       {/* ── Header ── */}
-      <header className=" h-14 px-4 md:px-6 border-b border-[var(--border)] bg-[var(--bg-panel)] flex items-center justify-between gap-3">
-        <div className="flex flex-[33.33%] items-center gap-2.5 font-extrabold tracking-tight text-[18px] shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-[var(--accent)] text-white text-sm flex items-center justify-center">⚡</div>
-          <span className="text-[var(--text)]">Analizador</span>
+      <header className="shrink-0 h-14 px-3 sm:px-4 md:px-6 border-b border-[var(--border)] bg-[var(--bg-panel)] flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 font-extrabold tracking-tight text-base sm:text-[18px] shrink-0 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-[var(--accent)] text-white text-sm flex items-center justify-center shrink-0">⚡</div>
+          <span className="text-[var(--text)] hidden xs:inline">Analizador</span>
           <span className="text-[var(--accent)]">C</span>
         </div>
 
         {/* Desktop tabs */}
-        <div className="w-full flex-[33.33%] h-full hidden md:flex items-center justify-center gap-5">
+        <div className="flex-1 min-w-0 hidden lg:flex items-center justify-center gap-2 xl:gap-3 overflow-x-auto px-2">
           {tabs.map(({ id, label, icon }) => {
             const active = activeTab === id;
             const badge = (id === 'syntax' && hasSyntaxErrors) || (id === 'semantic' && semanticIssues > 0);
@@ -278,14 +280,13 @@ export const AnalyzerApp: React.FC = () => {
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                style={{ padding: '10px' }}
-                className={`relative px-3.5 py-1.5 text-xs rounded-md border transition-colors flex items-center gap-1.5 ${active
+                className={`relative px-3 xl:px-4 py-2 text-xs rounded-md border transition-colors flex items-center gap-1.5 shrink-0 ${active
                   ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
                   : 'bg-transparent text-[var(--text-muted)] border-transparent hover:bg-[var(--bg-hover)] hover:text-[var(--text)]'
                   }`}
               >
                 <span>{icon}</span>
-                {label}
+                <span className="hidden xl:inline">{label}</span>
                 {badge && (
                   <span className="bg-[#ff4444] text-white text-[9px] font-bold px-1 rounded-full">
                     {id === 'semantic' ? semanticIssues : syntaxErrors.length}
@@ -295,14 +296,14 @@ export const AnalyzerApp: React.FC = () => {
             );
           })}
         </div>
-        <div style={{ padding: '10px' }} className='flex w-full flex-[33.33%] justify-end p-5'>
+
+        <div className="ml-auto shrink-0">
           <button
             onClick={handleAnalyze}
             disabled={loading || !code.trim()}
-            style={{ padding: '10px',display:'flex',justifyContent:'center',alignItems:'center',gap:'6px' }}
-            className="inline-flex items-center gap-2 px-4 h-9 rounded-lg text-xs font-medium tracking-wide bg-[var(--accent)] text-white hover:opacity-85 active:scale-[0.97] transition disabled:opacity-45"
+            className="inline-flex items-center gap-2 px-3 sm:px-4 h-9 rounded-lg text-xs font-medium tracking-wide bg-[var(--accent)] text-white hover:opacity-85 active:scale-[0.97] transition disabled:opacity-45"
           >
-            {loading ? '⟳ Analizando…' : '▶ Analizar'}
+            {loading ? '⟳…' : '▶ Analizar'}
           </button>
         </div>
       </header>
@@ -326,8 +327,8 @@ export const AnalyzerApp: React.FC = () => {
         </div>
       )}
 
-      {/* Mobile tabs */}
-      <div className="md:hidden px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-panel)] flex gap-1 overflow-x-auto">
+      {/* Mobile / tablet tabs */}
+      <div className="lg:hidden shrink-0 px-3 sm:px-4 py-2.5 border-b border-[var(--border)] bg-[var(--bg-panel)] flex gap-2 overflow-x-auto">
         {tabs.map(({ id, mobileLabel, icon }) => {
           const active = activeTab === id;
           const badge = (id === 'syntax' && hasSyntaxErrors) || (id === 'semantic' && semanticIssues > 0);
@@ -335,7 +336,7 @@ export const AnalyzerApp: React.FC = () => {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`relative px-3 py-1.5 text-xs rounded-md border whitespace-nowrap transition-colors flex items-center gap-1 ${active
+              className={`relative px-3.5 py-2 text-xs rounded-md border whitespace-nowrap transition-colors flex items-center gap-1.5 ${active
                 ? 'bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]'
                 : 'bg-transparent text-[var(--text-muted)] border-transparent'
                 }`}
@@ -352,9 +353,9 @@ export const AnalyzerApp: React.FC = () => {
       </div>
 
       {/* ── Content ── */}
-      <div className="flex-1 overflow-hidden p-0 md:p-1">
+      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 md:p-5">
         {activeTab === 'editor' && (
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-px bg-[var(--border)] h-full">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 md:gap-4 h-full min-h-0">
             <CodeEditor
               value={code}
               onChange={setCode}
@@ -384,13 +385,19 @@ export const AnalyzerApp: React.FC = () => {
         )}
 
         {activeTab === 'automata' && (
-          <div className="h-full p-3 md:p-6 overflow-auto">
+          <div className="h-full min-h-0 p-3 md:p-6 overflow-auto">
             <AutomataVisualizer states={states} transitions={transitions} loading={loading} />
           </div>
         )}
 
+        {activeTab === 'translate' && (
+          <div className="h-full min-h-0 p-3 md:p-6 overflow-hidden">
+            <CodeTranslator sourceCode={code} />
+          </div>
+        )}
+
         {activeTab === 'docs' && (
-          <div className="h-full p-3 md:p-6 overflow-auto">
+          <div className="h-full min-h-0 p-3 md:p-6 overflow-auto">
             <Documentation />
           </div>
         )}

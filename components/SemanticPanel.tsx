@@ -107,7 +107,7 @@ export const SemanticPanel: React.FC<Props> = ({ errors, warnings, symbolTable, 
       )}
 
       {!loading && inner === 'symbols' && (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto table-scroll">
           {symbolTable.length === 0 ? (
             <div className="flex items-center justify-center h-40 text-[var(--text-muted)] text-sm">
               No se encontraron símbolos

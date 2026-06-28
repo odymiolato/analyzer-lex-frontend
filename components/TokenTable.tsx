@@ -44,8 +44,8 @@ export const TokenTable: React.FC<TokenTableProps> = ({ tokens, loading = false 
   }
 
   return (
-    <div className="bg-[var(--bg-panel)] h-full flex flex-col">
-      <div className="px-4 py-2.5 border-b border-[var(--border)] flex items-center justify-between">
+    <div className="bg-[var(--bg-panel)] h-full min-h-[320px] flex flex-col rounded-xl border border-[var(--border)] shadow-lg overflow-hidden">
+      <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--border)] flex items-center justify-between shrink-0">
         <h2 className="text-[11px] tracking-[0.14em] uppercase font-bold text-[var(--text-muted)]">Tokens Reconocidos</h2>
         <span className="text-[11px] rounded-full px-2 py-0.5 bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)]">{tokens.length} tokens</span>
       </div>
@@ -54,11 +54,11 @@ export const TokenTable: React.FC<TokenTableProps> = ({ tokens, loading = false 
         <table className="w-full text-xs code-font">
           <thead className="bg-[var(--bg-panel)] border-b border-[var(--border)] sticky top-0">
             <tr>
-              <th className="px-3 py-2 text-left text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">#</th>
-              <th className="px-3 py-2 text-left text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Lexema</th>
-              <th className="px-3 py-2 text-left text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Token</th>
-              <th className="px-3 py-2 text-center text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Línea</th>
-              <th className="px-3 py-2 text-center text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Columna</th>
+              <th className="px-4 py-3 text-left text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">#</th>
+              <th className="px-4 py-3 text-left text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Lexema</th>
+              <th className="px-4 py-3 text-left text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Token</th>
+              <th className="px-4 py-3 text-center text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Línea</th>
+              <th className="px-4 py-3 text-center text-[10px] uppercase tracking-[0.12em] font-bold text-[var(--text-muted)]">Columna</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border)]">
@@ -70,19 +70,19 @@ export const TokenTable: React.FC<TokenTableProps> = ({ tokens, loading = false 
                   key={index}
                   className="hover:bg-[var(--bg-hover)] transition-colors"
                 >
-                  <td className="px-3 py-2 text-[var(--text-faint)]">{index + 1}</td>
-                  <td className="px-3 py-2 text-[var(--text)] max-w-[190px] truncate" title={token.lexema}>
+                  <td className="px-4 py-2.5 text-[var(--text-faint)]">{index + 1}</td>
+                  <td className="px-4 py-2.5 text-[var(--text)] max-w-none sm:max-w-[220px] truncate" title={token.lexema}>
                     {token.lexema}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-4 py-2.5">
                     <span className={`inline-block px-2 py-0.5 rounded text-[11px] ui-font font-semibold ${typeColor.badge}`}>
                       {token.tipo}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center text-[var(--text-muted)]">
+                  <td className="px-4 py-2.5 text-center text-[var(--text-muted)]">
                     {token.linea}
                   </td>
-                  <td className="px-3 py-2 text-center text-[var(--text-muted)]">
+                  <td className="px-4 py-2.5 text-center text-[var(--text-muted)]">
                     {token.columna}
                   </td>
                 </tr>

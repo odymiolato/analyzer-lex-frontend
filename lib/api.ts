@@ -135,4 +135,31 @@ export const analyzeSemantic = async (source: string): Promise<SemanticResponse>
   }
 };
 
+// ─── Traducción de código ─────────────────────────────────
+
+export type TargetLanguage = 'javascript' | 'cpp';
+
+export interface TranslateResponse {
+  code: string;
+  target: TargetLanguage;
+  warnings: string[];
+  syntaxErrors?: SyntaxError[];
+}
+
+export const translateCode = async (
+  source: string,
+  target: TargetLanguage,
+): Promise<TranslateResponse> => {
+  try {
+    const response = await api.post<TranslateResponse>('/compiler/translate', {
+      code: source,
+      target,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error translating code:', error);
+    throw error;
+  }
+};
+
 export default api;
