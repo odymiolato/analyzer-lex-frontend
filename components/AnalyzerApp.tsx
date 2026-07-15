@@ -6,6 +6,8 @@ import { TokenTable } from '@/components/TokenTable';
 import { AutomataVisualizer } from '@/components/AutomataVisualizer';
 import { Documentation } from '@/components/Documentation';
 import { CodeTranslator } from '@/components/CodeTranslator';
+import { TargetCodeGenerator } from '@/components/TargetCodeGenerator';
+import { CodeOptimizer } from '@/components/CodeOptimizer';
 import { analyzeCode, parseCode, analyzeSemantic, Token, CSTNode, SyntaxError, SemanticError, SymbolEntry } from '@/lib/api';
 import { SemanticPanel } from '@/components/SemanticPanel';
 
@@ -22,7 +24,7 @@ interface Transition {
   label: string;
 }
 
-type Tab = 'editor' | 'syntax' | 'semantic' | 'automata' | 'translate' | 'docs';
+type Tab = 'editor' | 'syntax' | 'semantic' | 'automata' | 'translate' | 'codegen' | 'optimize' | 'docs';
 
 /* ─── CST Tree Renderer ─────────────────────────────────── */
 const CSTTreeNode: React.FC<{ node: CSTNode; depth?: number }> = ({ node, depth = 0 }) => {
@@ -255,6 +257,8 @@ export const AnalyzerApp: React.FC = () => {
     { id: 'semantic',  label: 'Semántico',       mobileLabel: 'Sem.',     icon: '🔍' },
     { id: 'automata',  label: 'Autómata',        mobileLabel: 'Autómata', icon: '◎'  },
     { id: 'translate', label: 'Traductor',       mobileLabel: 'Trad.',    icon: '⇄'  },
+    { id: 'codegen',   label: 'Código destino',  mobileLabel: 'Destino',  icon: '⚙'  },
+    { id: 'optimize',  label: 'Optimizador',     mobileLabel: 'Optim.',   icon: '⚡' },
     { id: 'docs',      label: 'Documentación',  mobileLabel: 'Docs',     icon: '📄' },
   ];
 
@@ -393,6 +397,18 @@ export const AnalyzerApp: React.FC = () => {
         {activeTab === 'translate' && (
           <div className="h-full min-h-0 p-3 md:p-6 overflow-hidden">
             <CodeTranslator sourceCode={code} />
+          </div>
+        )}
+
+        {activeTab === 'codegen' && (
+          <div className="h-full min-h-0 p-3 md:p-6 overflow-hidden">
+            <TargetCodeGenerator sourceCode={code} />
+          </div>
+        )}
+
+        {activeTab === 'optimize' && (
+          <div className="h-full min-h-0 p-3 md:p-6 overflow-hidden">
+            <CodeOptimizer sourceCode={code} />
           </div>
         )}
 

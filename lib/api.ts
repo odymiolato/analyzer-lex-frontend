@@ -162,4 +162,69 @@ export const translateCode = async (
   }
 };
 
+// ─── Código destino (TAC) y optimizador ───────────────────
+
+export interface Quad {
+  op: string;
+  arg1: string | null;
+  arg2: string | null;
+  result: string | null;
+}
+
+export interface TACFunction {
+  name: string;
+  params: string[];
+  code: Quad[];
+}
+
+export interface TACProgram {
+  globals: Quad[];
+  functions: TACFunction[];
+}
+
+export interface TargetCodeResponse {
+  syntaxErrors: SyntaxError[];
+  program: TACProgram;
+  listing: string;
+}
+
+export const generateTargetCode = async (source: string): Promise<TargetCodeResponse> => {
+  try {
+    const response = await api.post<TargetCodeResponse>('/compiler/codegen', { code: source });
+    return response.data;
+  } catch (error) {
+    console.error('Error generating target code:', error);
+    throw error;
+  }
+};
+
+export interface AppliedOptimization {
+  pass: string;
+  description: string;
+}
+
+export interface OptimizeStats {
+  instructionsBefore: number;
+  instructionsAfter: number;
+  removed: number;
+}
+
+export interface OptimizeResponse {
+  syntaxErrors: SyntaxError[];
+  original: { program: TACProgram; listing: string };
+  optimized: { program: TACProgram; listing: string };
+  applied: AppliedOptimization[];
+  stats: OptimizeStats;
+}
+
+export const optimizeCode = async (source: string): Promise<OptimizeResponse> => {
+  try {
+    const response = await api.post<OptimizeResponse>('/compiler/optimize', { code: source });
+    return response.data;
+  } catch (error) {
+    console.error('Error optimizing code:', error);
+    throw error;
+  }
+};
+
 export default api;
