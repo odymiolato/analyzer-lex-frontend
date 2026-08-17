@@ -227,4 +227,89 @@ export const optimizeCode = async (source: string): Promise<OptimizeResponse> =>
   }
 };
 
+// ─── Compilación completa (pipeline → ejecutable) ─────────
+
+export type BuildPhase =
+  | 'lexico'
+  | 'sintactico'
+  | 'semantico'
+  | 'codigo_intermedio'
+  | 'optimizacion'
+  | 'generacion_codigo'
+  | 'ensamblado_enlace'
+  | 'listo';
+
+export type BuildStatus = 'running' | 'ok' | 'warning' | 'error';
+
+export interface BuildEvent {
+  phase: BuildPhase;
+  status: BuildStatus;
+  message: string;
+  detail?: unknown;
+  buildId?: string;
+  fileName?: string;
+}
+
+/**
+ * Lanza la compilación completa (léxico → … → ejecutable) y va entregando
+ * cada evento de fase a medida que el backend los transmite (NDJSON).
+ */
+export const streamBuild = async (
+  source: string,
+  onEvent: (event: BuildEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> => {
+  const response = await fetch('/api/compiler/build', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: source }),
+    signal,
+  });
+
+  if (!response.ok) {
+    let message = 'Error al iniciar la compilación';
+    try {
+      const data = await response.json();
+      message = data?.message ?? message;
+    } catch {
+      // la respuesta no era JSON
+    }
+    throw new Error(message);
+  }
+  if (!response.body) {
+    throw new Error('El servidor no devolvió una respuesta válida');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  const consumeLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    try {
+      onEvent(JSON.parse(trimmed) as BuildEvent);
+    } catch {
+      // línea parcial o corrupta — se ignora
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+      consumeLine(buffer.slice(0, newlineIndex));
+      buffer = buffer.slice(newlineIndex + 1);
+    }
+  }
+  consumeLine(buffer);
+};
+
+/** URL de descarga del ejecutable generado por un build exitoso. */
+export const downloadBuildUrl = (buildId: string): string =>
+  `/api/compiler/build/${buildId}/download`;
+
 export default api;

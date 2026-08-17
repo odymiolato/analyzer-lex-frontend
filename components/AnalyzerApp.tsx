@@ -8,6 +8,7 @@ import { Documentation } from '@/components/Documentation';
 import { CodeTranslator } from '@/components/CodeTranslator';
 import { TargetCodeGenerator } from '@/components/TargetCodeGenerator';
 import { CodeOptimizer } from '@/components/CodeOptimizer';
+import { BuildModal } from '@/components/BuildModal';
 import { analyzeCode, parseCode, analyzeSemantic, Token, CSTNode, SyntaxError, SemanticError, SymbolEntry } from '@/lib/api';
 import { SemanticPanel } from '@/components/SemanticPanel';
 
@@ -200,6 +201,7 @@ export const AnalyzerApp: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('editor');
+  const [buildOpen, setBuildOpen] = useState(false);
 
   const handleAnalyze = useCallback(async () => {
     if (!code.trim()) return;
@@ -301,7 +303,7 @@ export const AnalyzerApp: React.FC = () => {
           })}
         </div>
 
-        <div className="ml-auto shrink-0">
+        <div className="ml-auto shrink-0 flex items-center gap-2">
           <button
             onClick={handleAnalyze}
             disabled={loading || !code.trim()}
@@ -309,8 +311,17 @@ export const AnalyzerApp: React.FC = () => {
           >
             {loading ? '⟳…' : '▶ Analizar'}
           </button>
+          <button
+            onClick={() => setBuildOpen(true)}
+            disabled={!code.trim()}
+            className="inline-flex items-center gap-2 px-3 sm:px-4 h-9 rounded-lg text-xs font-medium tracking-wide border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent-dim)] active:scale-[0.97] transition disabled:opacity-45"
+          >
+            🛠 Compilar
+          </button>
         </div>
       </header>
+
+      <BuildModal open={buildOpen} onClose={() => setBuildOpen(false)} sourceCode={code} />
 
       {/* Error banner */}
       {error && (
